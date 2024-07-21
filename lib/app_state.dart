@@ -213,4 +213,35 @@ class AppState with ChangeNotifier {
       loadPhoneDirectory(previousPath);
     }
   }
+
+  List<FileSystemEntity> _copiedFiles = [];
+
+  List<FileSystemEntity> get copiedFiles => _copiedFiles;
+
+
+
+  Future<void> copyFiles(List<FileSystemEntity> entities) async {
+    _copiedFiles = entities;
+    notifyListeners();
+  }
+
+  Future<void> pasteFiles(String destinationPath) async {
+    if (_copiedFiles.isEmpty) {
+      throw Exception('No files to paste');
+    }
+
+    for (var file in _copiedFiles) {
+      await transferFile(file, !file.isPhoneFileSystem, destinationPath);
+    }
+
+    _copiedFiles.clear();
+    notifyListeners();
+
+    // Refresh the current directory
+    if (destinationPath == currentPcPath) {
+      await loadPcDirectory(currentPcPath);
+    } else if (destinationPath == currentPhonePath) {
+      await loadPhoneDirectory(currentPhonePath);
+    }
+  }
 }

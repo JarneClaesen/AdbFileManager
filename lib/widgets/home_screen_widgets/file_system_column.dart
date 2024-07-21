@@ -66,6 +66,29 @@ class FileSystemColumn extends StatelessWidget {
                     });
                   },
                   isPhoneFileSystem: !isPC,
+                  onPaste: () {
+                    appState.pasteFiles(isPC ? appState.currentPcPath : appState.currentPhonePath).then((_) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Files pasted successfully')),
+                      );
+                    }).catchError((error) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error pasting files: $error')),
+                      );
+                    });
+                  },
+                  onCopy: (entities) {
+                    appState.copyFiles(entities).then((_) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Files copied to clipboard')),
+                      );
+                    }).catchError((error) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error copying files: $error')),
+                      );
+                    });
+                  },
+                  copiedFiles: appState.copiedFiles,
                 ),
                 if (!isPC && appState.isPhoneLoading)
                   Container(
