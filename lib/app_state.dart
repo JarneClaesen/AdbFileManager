@@ -1,7 +1,11 @@
-import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
+import 'package:win32/win32.dart';
 import 'models/file_system_entity.dart';
 import 'services/adb_service.dart';
+import 'dart:ffi';
+import 'package:ffi/ffi.dart';
+import 'dart:io';
 
 class AppState with ChangeNotifier {
   FileSystem pcFileSystem = FileSystem();
@@ -39,7 +43,6 @@ class AppState with ChangeNotifier {
       currentPcPath = path;
       notifyListeners();
     } catch (e) {
-      print('Error loading PC directory: $e');
     }
   }
 
@@ -48,13 +51,11 @@ class AppState with ChangeNotifier {
     notifyListeners();
     try {
       final files = await adbService.listFiles(path);
-      print('Debug: Raw files list for path $path:');
       files.forEach(print);
 
       phoneFileSystem.entities = files.map((file) {
         final parts = file.split(RegExp(r'\s+'));
         if (parts.length < 7) {
-          print('Debug: Skipping invalid entry: $file');
           return null;
         }
 
@@ -64,20 +65,19 @@ class AppState with ChangeNotifier {
         final name = parts.sublist(7).join(' ').trim();
 
         if (name.isEmpty || name == '.' || name == '..') {
-          print('Debug: Skipping entry: $name');
           return null;
         }
 
-        print('Debug: Parsed entry - Name: $name, IsDirectory: $isDirectory');
 
         return FileSystemEntity(
           name: name,
           path: '$path/$name',
           isDirectory: isDirectory,
+          isPhoneFileSystem: true,
         );
       }).whereType<FileSystemEntity>().toList();
 
-      print('Debug: Parsed entities:');
+
       phoneFileSystem.entities.forEach((entity) => print('${entity.name} - ${entity.path}'));
 
       if (path != currentPhonePath) {
@@ -85,7 +85,6 @@ class AppState with ChangeNotifier {
       }
       currentPhonePath = path;
     } catch (e) {
-      print('Error loading phone directory: $e');
     } finally {
       isPhoneLoading = false;
       notifyListeners();
@@ -101,12 +100,10 @@ class AppState with ChangeNotifier {
   }
 
   Future<void> transferFile(FileSystemEntity source, bool toPhone, String destinationPath) async {
-    debugPrint('transferFile called: ${source.path} to ${toPhone ? 'Phone' : 'PC'} at $destinationPath');
     try {
       transferProgress = 0;
 
       if (toPhone) {
-        debugPrint('Pushing file from PC to phone');
         await adbService.pushFile(
             source.path,
             '$destinationPath/${source.name}',
@@ -114,10 +111,8 @@ class AppState with ChangeNotifier {
               transferProgress = progress;
             }
         );
-        debugPrint('Push completed, reloading phone directory');
         await loadPhoneDirectory(currentPhonePath);
       } else {
-        debugPrint('Pulling file from phone to PC');
         await adbService.pullFile(
             source.path,
             '$destinationPath/${source.name}',
@@ -125,24 +120,19 @@ class AppState with ChangeNotifier {
               transferProgress = progress;
             }
         );
-        debugPrint('Pull completed, reloading PC directory');
         await loadPcDirectory(currentPcPath);
       }
-      debugPrint('File transfer completed successfully');
       transferProgress = -1;
     } catch (e) {
-      debugPrint('Error transferring file: $e');
       transferProgress = -1;
       rethrow;
     }
   }
 
   Future<void> transferFiles(List<FileSystemEntity> sources, bool toPhone, String destinationPath) async {
-    debugPrint('transferFiles called: ${sources.length} files to ${toPhone ? 'Phone' : 'PC'} at $destinationPath');
     try {
       // Check if the transfer is from phone to phone and prevent it
       if (sources.any((source) => source.isPhoneFileSystem) && toPhone) {
-        debugPrint('Phone-to-phone transfer is not allowed');
         throw Exception('Phone-to-phone transfer is not allowed');
       }
 
@@ -151,7 +141,6 @@ class AppState with ChangeNotifier {
 
       for (var source in sources) {
         if (toPhone) {
-          debugPrint('Pushing file from PC to phone: ${source.name}');
           await adbService.pushFile(
               source.path,
               '$destinationPath/${source.name}',
@@ -160,7 +149,6 @@ class AppState with ChangeNotifier {
               }
           );
         } else {
-          debugPrint('Pulling file from phone to PC: ${source.name}');
           await adbService.pullFile(
               source.path,
               '$destinationPath/${source.name}',
@@ -172,7 +160,6 @@ class AppState with ChangeNotifier {
         completedTransfers++;
       }
 
-      debugPrint('Files transfer completed successfully');
       if (toPhone) {
         await loadPhoneDirectory(currentPhonePath);
       } else {
@@ -180,7 +167,6 @@ class AppState with ChangeNotifier {
       }
       transferProgress = -1;
     } catch (e) {
-      debugPrint('Error transferring files: $e');
       transferProgress = -1;
       rethrow;
     }
@@ -244,4 +230,97 @@ class AppState with ChangeNotifier {
       await loadPhoneDirectory(currentPhonePath);
     }
   }
+
+  Future<void> deleteFiles(List<FileSystemEntity> entities, bool permanent) async {
+    List<String> failedDeletions = [];
+
+    for (var entity in entities) {
+      try {
+        if (entity.isPhoneFileSystem) {
+          await _deletePhoneFile(entity.path);
+        } else {
+          await _deletePcFile(entity, permanent);
+        }
+      } catch (e) {
+        failedDeletions.add(entity.path);
+      }
+    }
+
+    // Refresh the current directory
+    if (entities.first.isPhoneFileSystem) {
+      await loadPhoneDirectory(currentPhonePath);
+    } else {
+      await loadPcDirectory(currentPcPath);
+    }
+
+    // Report any failed deletions
+    if (failedDeletions.isNotEmpty) {
+      throw Exception('Failed to delete the following files/folders:\n${failedDeletions.join('\n')}');
+    }
+  }
+
+  Future<void> _deletePhoneFile(String path) async {
+    final result = await adbService.deleteFile(path);
+    if (!result.success) {
+      throw Exception('Failed to delete on phone: ${result.errorMessage}');
+    }
+  }
+
+  Future<void> _deletePcFile(FileSystemEntity entity, bool permanent) async {
+    if (permanent) {
+      await _permanentlyDeleteFile(entity);
+    } else {
+      await _moveToRecycleBin(entity.path);
+    }
+  }
+
+
+  Future<void> _permanentlyDeleteFile(FileSystemEntity entity) async {
+    if (entity.isDirectory) {
+      await Directory(entity.path).delete(recursive: true);
+    } else {
+      await File(entity.path).delete();
+    }
+  }
+
+  Future<void> _moveToRecycleBin(String path) async {
+    // Ensure the path is null-terminated and double-null-terminated
+    final pathPointer = calloc<Uint16>(path.length + 2);
+    for (var i = 0; i < path.length; i++) {
+      pathPointer[i] = path.codeUnitAt(i);
+    }
+    pathPointer[path.length] = 0; // Null-terminate
+
+    final fileOp = calloc<SHFILEOPSTRUCT>();
+
+    try {
+      final attributes = GetFileAttributes(pathPointer as Pointer<Utf16>);
+      final isDirectory = attributes & FILE_ATTRIBUTE_DIRECTORY != 0;
+
+      fileOp.ref.wFunc = FO_DELETE;
+      fileOp.ref.pFrom = pathPointer.cast<Utf16>();
+      fileOp.ref.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT;
+
+      final result = SHFileOperation(fileOp);
+
+      if (result != 0) {
+        final error = GetLastError();
+        throw Exception('Failed to delete ${isDirectory ? "folder" : "file"}. SHFileOperation error: $result, GetLastError: $error');
+      }
+
+      if (fileOp.ref.fAnyOperationsAborted != 0) {
+        throw Exception('Delete operation was aborted by the user');
+      }
+
+      // Verify deletion
+      final existsAfter = GetFileAttributes(pathPointer as Pointer<Utf16>) != 0xFFFFFFFF; // INVALID_FILE_ATTRIBUTES
+      if (existsAfter) {
+        throw Exception('${isDirectory ? "Folder" : "File"} still exists after deletion attempt');
+      }
+    } finally {
+      free(pathPointer);
+      free(fileOp);
+    }
+  }
+
 }

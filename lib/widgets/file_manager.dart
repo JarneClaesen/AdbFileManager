@@ -12,6 +12,7 @@ class FileManager extends StatefulWidget {
   final VoidCallback onPaste;
   final Function(List<FileSystemEntity>) onCopy;
   final List<FileSystemEntity> copiedFiles;
+  final Function(List<FileSystemEntity>, bool) onDelete;
 
   FileManager({
     required this.entities,
@@ -22,6 +23,7 @@ class FileManager extends StatefulWidget {
     required this.onPaste,
     required this.onCopy,
     required this.copiedFiles,
+    required this.onDelete,
   }) : super(key: ObjectKey(currentDirectory.path));
 
   @override
@@ -57,6 +59,8 @@ class _FileManagerState extends State<FileManager> {
         } else if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
             event.logicalKey == LogicalKeyboardKey.shiftRight) {
           isShiftPressed = true;
+        } else if (event.logicalKey == LogicalKeyboardKey.delete) {
+          _handleDelete();
         }
       } else if (event is RawKeyUpEvent) {
         if (event.logicalKey == LogicalKeyboardKey.controlLeft ||
@@ -68,6 +72,15 @@ class _FileManagerState extends State<FileManager> {
         }
       }
     });
+  }
+
+  void _handleDelete() {
+    if (selectedEntityPaths.isNotEmpty) {
+      widget.onDelete(
+          widget.entities.where((e) => selectedEntityPaths.contains(e.path)).toList(),
+          isShiftPressed
+      );
+    }
   }
 
   void _handleTap(FileSystemEntity entity, int index) {
@@ -131,6 +144,14 @@ class _FileManagerState extends State<FileManager> {
             },
             enabled: widget.copiedFiles.isNotEmpty,
           ),
+          ListTile(
+            leading: Icon(Icons.delete),
+            title: Text('Delete'),
+            onTap: () {
+              _handleDelete();
+              Navigator.of(context).pop();
+            },
+          ),
         ],
         child: ListTile(
           leading: Icon(
@@ -152,68 +173,68 @@ class _FileManagerState extends State<FileManager> {
   @override
   Widget build(BuildContext context) {
     return DragTarget<List<FileSystemEntity>>(
-        onWillAccept: (data) => data != null && data.isNotEmpty,
-        onAccept: (draggedEntities) {
-          widget.onEntitiesDrop(draggedEntities, widget.currentDirectory);
-        },
-        builder: (context, candidateData, rejectedData) {
-          return ContextMenuArea(
-            builder: (context) => [
-              ListTile(
-                leading: Icon(Icons.copy),
-                title: Text('Copy'),
-                onTap: () {
-                  widget.onCopy(widget.entities
-                      .where((e) => selectedEntityPaths.contains(e.path))
-                      .toList());
-                  Navigator.of(context).pop();
-                },
-                enabled: selectedEntityPaths.isNotEmpty,
-              ),
-              ListTile(
-                leading: Icon(Icons.paste),
-                title: Text('Paste'),
-                onTap: () {
-                  widget.onPaste();
-                  Navigator.of(context).pop();
-                },
-                enabled: widget.copiedFiles.isNotEmpty,
-              ),
-            ],
-            child: ListView.builder(
-              itemCount: widget.entities.length,
-              itemBuilder: (context, index) {
-                final entity = widget.entities[index];
-                return DragTarget<List<FileSystemEntity>>(
-                  onWillAccept: (data) => data != null && entity.isDirectory,
-                  onAccept: (draggedEntities) {
-                    widget.onEntitiesDrop(draggedEntities, entity);
-                  },
-                  builder: (context, candidateData, rejectedData) {
-                    return Draggable<List<FileSystemEntity>>(
-                      data: selectedEntityPaths.isEmpty
-                          ? [entity]
-                          : widget.entities
-                              .where(
-                                  (e) => selectedEntityPaths.contains(e.path))
-                              .toList(),
-                      child: _buildListTile(entity, index),
-                      feedback: Material(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width),
-                          child:
-                              _buildListTile(entity, index, isDragging: true),
-                        ),
-                      ),
-                      childWhenDragging:
-                          _buildListTile(entity, index, isGhost: true),
-                    );
-                  },
-                );
+      onWillAccept: (data) => data != null && data.isNotEmpty,
+      onAccept: (draggedEntities) {
+        widget.onEntitiesDrop(draggedEntities, widget.currentDirectory);
+      },
+      builder: (context, candidateData, rejectedData) {
+        return ContextMenuArea(
+          builder: (context) => [
+            ListTile(
+              leading: Icon(Icons.copy),
+              title: Text('Copy'),
+              onTap: () {
+                widget.onCopy(widget.entities.where((e) => selectedEntityPaths.contains(e.path)).toList());
+                Navigator.of(context).pop();
               },
+              enabled: selectedEntityPaths.isNotEmpty,
             ),
-          );
-        });
+            ListTile(
+              leading: Icon(Icons.paste),
+              title: Text('Paste'),
+              onTap: () {
+                widget.onPaste();
+                Navigator.of(context).pop();
+              },
+              enabled: widget.copiedFiles.isNotEmpty,
+            ),
+            ListTile(
+              leading: Icon(Icons.delete),
+              title: Text('Delete'),
+              onTap: () {
+                _handleDelete();
+                Navigator.of(context).pop();
+              },
+              enabled: selectedEntityPaths.isNotEmpty,
+            ),
+          ],
+          child: ListView.builder(
+            itemCount: widget.entities.length,
+            itemBuilder: (context, index) {
+              final entity = widget.entities[index];
+              return DragTarget<List<FileSystemEntity>>(
+                onWillAccept: (data) => data != null && entity.isDirectory,
+                onAccept: (draggedEntities) {
+                  widget.onEntitiesDrop(draggedEntities, entity);
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return Draggable<List<FileSystemEntity>>(
+                    data: selectedEntityPaths.isEmpty ? [entity] : widget.entities.where((e) => selectedEntityPaths.contains(e.path)).toList(),
+                    child: _buildListTile(entity, index),
+                    feedback: Material(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width),
+                        child: _buildListTile(entity, index, isDragging: true),
+                      ),
+                    ),
+                    childWhenDragging: _buildListTile(entity, index, isGhost: true),
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 }

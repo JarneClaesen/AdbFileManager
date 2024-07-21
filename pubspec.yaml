@@ -41,6 +41,8 @@ dependencies:
   provider: ^6.1.2
   intl: ^0.19.0
   contextmenu: ^3.0.0
+  win32: ^5.5.1
+  ffi: ^2.1.2
 
 dev_dependencies:
   flutter_test:

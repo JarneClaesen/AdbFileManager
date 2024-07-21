@@ -123,4 +123,41 @@ class AdbService {
     }
   }
 
+  Future<DeleteResult> deleteFile(String path) async {
+    await ensureServerStarted();
+
+    print('AdbService: Attempting to delete on phone: $path');
+
+    // First, check if the file/directory exists
+    final checkResult = await Process.run(_adbPath, ['shell', 'ls', path]);
+    print('AdbService: Check result: ${checkResult.stdout}, Exit code: ${checkResult.exitCode}');
+    if (checkResult.exitCode != 0) {
+      return DeleteResult(false, 'File or directory not found: $path');
+    }
+
+    // If it exists, try to delete it
+    final result = await Process.run(_adbPath, ['shell', 'rm', '-rf', path]);
+    print('AdbService: Delete result: ${result.stdout}, Error: ${result.stderr}, Exit code: ${result.exitCode}');
+    if (result.exitCode != 0) {
+      final errorMessage = result.stderr.toString().trim();
+      return DeleteResult(false, 'Failed to delete: $errorMessage (Exit code: ${result.exitCode})');
+    }
+
+    // Double-check that it's been deleted
+    final verifyResult = await Process.run(_adbPath, ['shell', 'ls', path]);
+    print('AdbService: Verify result: ${verifyResult.stdout}, Exit code: ${verifyResult.exitCode}');
+    if (verifyResult.exitCode == 0) {
+      return DeleteResult(false, 'File or directory still exists after deletion attempt');
+    }
+
+    return DeleteResult(true, '');
+  }
+
+}
+
+class DeleteResult {
+  final bool success;
+  final String errorMessage;
+
+  DeleteResult(this.success, this.errorMessage);
 }

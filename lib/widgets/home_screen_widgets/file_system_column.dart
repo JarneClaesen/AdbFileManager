@@ -88,6 +88,17 @@ class FileSystemColumn extends StatelessWidget {
                       );
                     });
                   },
+                  onDelete: (entities, permanent) {
+                    appState.deleteFiles(entities, permanent).then((_) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Files deleted successfully')),
+                      );
+                    }).catchError((error) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error deleting files: $error')),
+                      );
+                    });
+                  },
                   copiedFiles: appState.copiedFiles,
                 ),
                 if (!isPC && appState.isPhoneLoading)
