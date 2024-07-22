@@ -9,43 +9,12 @@ class ProgressContainerService extends StatefulWidget {
 }
 
 class _ProgressContainerServiceState extends State<ProgressContainerService> {
-  bool _showContainer = true;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final appState = Provider.of<AppState>(context);
-    appState.addListener(_checkTransfers);
-  }
-
-  @override
-  void dispose() {
-    final appState = Provider.of<AppState>(context, listen: false);
-    appState.removeListener(_checkTransfers);
-    super.dispose();
-  }
-
-  void _checkTransfers() {
-    final appState = Provider.of<AppState>(context, listen: false);
-    final hasTransfers = appState.activeTransfers.isNotEmpty || appState.completedTransfers.isNotEmpty;
-
-    if (hasTransfers && !_showContainer) {
-      setState(() {
-        _showContainer = true;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     final hasTransfers = appState.activeTransfers.isNotEmpty || appState.completedTransfers.isNotEmpty;
 
-    if (!hasTransfers) {
-      return SizedBox.shrink();
-    }
-
-    if (!_showContainer) {
+    if (!hasTransfers || !appState.showProgressContainer) {
       return SizedBox.shrink();
     }
 
@@ -56,9 +25,7 @@ class _ProgressContainerServiceState extends State<ProgressContainerService> {
         transfers: [...appState.activeTransfers, ...appState.completedTransfers],
         totalProgress: appState.totalProgress,
         onDismiss: () {
-          setState(() {
-            _showContainer = false;
-          });
+          appState.dismissProgressContainer();
         },
       ),
     );

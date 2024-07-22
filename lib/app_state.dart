@@ -37,12 +37,9 @@ class AppState with ChangeNotifier {
   Future<void> loadPcDirectory(String path) async {
     try {
       await pcFileSystem.loadDirectory(path);
-      if (path != currentPcPath) {
-        pcPathHistory.add(currentPcPath);
-      }
-      currentPcPath = path;
-      notifyListeners();
+      updateDirectoryWithoutAffectingProgress(path, false);
     } catch (e) {
+      print('Error loading directory: $e');
     }
   }
 
@@ -84,6 +81,7 @@ class AppState with ChangeNotifier {
         phonePathHistory.add(currentPhonePath);
       }
       currentPhonePath = path;
+      updateDirectoryWithoutAffectingProgress(path, true);
     } catch (e) {
     } finally {
       isPhoneLoading = false;
@@ -154,13 +152,11 @@ class AppState with ChangeNotifier {
 
   Future<void> transferFiles(List<FileSystemEntity> sources, bool toPhone, String destinationPath) async {
     try {
-      // Check if the transfer is from phone to phone and prevent it
       if (sources.any((source) => source.isPhoneFileSystem) && toPhone) {
         throw Exception('Phone-to-phone transfer is not allowed');
       }
 
-      _activeTransfers.clear();
-      notifyListeners();
+      resetProgressContainerState();
 
       for (var source in sources) {
         await transferFile(source, toPhone, destinationPath);
@@ -175,6 +171,7 @@ class AppState with ChangeNotifier {
       rethrow;
     }
   }
+
 
 
 
@@ -372,10 +369,11 @@ class AppState with ChangeNotifier {
   }
 
   void startNewTransfer(FileTransfer transfer) {
+    resetProgressContainerState();
     _activeTransfers.add(transfer);
-    _showProgressContainer = true;
     notifyListeners();
   }
+
 
   void completeTransfer(FileTransfer transfer) {
     _activeTransfers.remove(transfer);
@@ -387,6 +385,29 @@ class AppState with ChangeNotifier {
     _showProgressContainer = false;
     notifyListeners();
   }
+
+  void resetProgressContainerState() {
+    _showProgressContainer = true;
+    _activeTransfers.clear();
+    _completedTransfers.clear();
+    notifyListeners();
+  }
+
+  void updateDirectoryWithoutAffectingProgress(String newPath, bool isPhoneFileSystem) {
+    if (isPhoneFileSystem) {
+      if (newPath != currentPhonePath) {
+        phonePathHistory.add(currentPhonePath);
+      }
+      currentPhonePath = newPath;
+    } else {
+      if (newPath != currentPcPath) {
+        pcPathHistory.add(currentPcPath);
+      }
+      currentPcPath = newPath;
+    }
+    notifyListeners();
+  }
+
 
 
 }
