@@ -125,50 +125,83 @@ class _FileManagerState extends State<FileManager> {
     final isSelected = selectedEntityPaths.contains(entity.path);
     return Opacity(
       opacity: isGhost ? 0.5 : 1.0,
-      child: ContextMenuArea(
-        builder: (context) => [
-          ListTile(
-            leading: Icon(Icons.copy),
-            title: Text('Copy'),
-            onTap: () {
-              widget.onCopy(selectedEntityPaths.isEmpty ? [entity] : widget.entities.where((e) => selectedEntityPaths.contains(e.path)).toList());
-              Navigator.of(context).pop();
-            },
+      child: Container(
+        margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ContextMenuArea(
+          builder: (context) => [
+            ListTile(
+              leading: Icon(Icons.copy),
+              title: Text('Copy'),
+              onTap: () {
+                widget.onCopy(selectedEntityPaths.isEmpty ? [entity] : widget.entities.where((e) => selectedEntityPaths.contains(e.path)).toList());
+                Navigator.of(context).pop();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.paste),
+              title: Text('Paste'),
+              onTap: () {
+                widget.onPaste();
+                Navigator.of(context).pop();
+              },
+              enabled: widget.copiedFiles.isNotEmpty,
+            ),
+            ListTile(
+              leading: Icon(Icons.delete),
+              title: Text('Delete'),
+              onTap: () {
+                _handleDelete();
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _handleTap(entity, index),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: isDragging
+                      ? Theme.of(context).colorScheme.surfaceContainerLowest
+                      : (isSelected ? Theme.of(context).colorScheme.surfaceContainerHigh : Theme.of(context).colorScheme.surface),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  leading: Icon(
+                    entity.isDirectory ? Icons.folder : Icons.insert_drive_file,
+                    color: entity.isDirectory ? Colors.amber : Colors.blue,
+                  ),
+                  title: Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Text(entity.name),
+                  ),
+                  subtitle: Padding(
+                    padding: EdgeInsets.only(bottom: 0),
+                    child: Text(
+                        '${entity.size != null ? '${(entity.size! / 1024).toStringAsFixed(2)} KB' : ''}'
+                            '${entity.lastModified != null ? ' - ${entity.lastModified!.toString()}' : ''}'
+                    ),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                ),
+              ),
+            ),
           ),
-          ListTile(
-            leading: Icon(Icons.paste),
-            title: Text('Paste'),
-            onTap: () {
-              widget.onPaste();
-              Navigator.of(context).pop();
-            },
-            enabled: widget.copiedFiles.isNotEmpty,
-          ),
-          ListTile(
-            leading: Icon(Icons.delete),
-            title: Text('Delete'),
-            onTap: () {
-              _handleDelete();
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-        child: ListTile(
-          leading: Icon(
-            entity.isDirectory ? Icons.folder : Icons.insert_drive_file,
-            color: entity.isDirectory ? Colors.amber : Colors.blue,
-          ),
-          title: Text(entity.name),
-          subtitle: Text(
-              '${entity.size != null ? '${(entity.size! / 1024).toStringAsFixed(2)} KB' : ''}'
-                  '${entity.lastModified != null ? ' - ${entity.lastModified!.toString()}' : ''}'
-          ),
-          tileColor: isDragging ? Colors.grey.withOpacity(0.3) : (isSelected ? Colors.blue.withOpacity(0.1) : null),
-          onTap: () => _handleTap(entity, index),
         ),
       ),
     );
   }
+
+
+
+
 
   @override
   Widget build(BuildContext context) {

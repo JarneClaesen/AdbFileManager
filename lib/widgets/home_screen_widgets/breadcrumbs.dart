@@ -21,16 +21,15 @@ class Breadcrumbs extends StatelessWidget {
                 InkWell(
                   onTap: () => onTap(parts.sublist(0, i + 1).join(separator ?? Platform.pathSeparator)),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: EdgeInsets.only(top: 3, bottom: 5, left: 8, right: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
+                      color: Theme.of(context).colorScheme.secondary,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey[300]!),
                     ),
                     child: Text(
                       parts[i].isEmpty ? 'Root' : parts[i],
                       style: TextStyle(
-                        color: Colors.black87,
+                        color: Theme.of(context).colorScheme.onSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -39,7 +38,7 @@ class Breadcrumbs extends StatelessWidget {
                 if (i < parts.length - 1)
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4),
-                    child: Icon(Icons.chevron_right, size: 18, color: Colors.grey[600]),
+                    child: Icon(Icons.chevron_right_rounded, size: 18, color: Theme.of(context).colorScheme.primary),
                   ),
               ],
             ),

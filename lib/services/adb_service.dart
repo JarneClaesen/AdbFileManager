@@ -48,7 +48,7 @@ class AdbService {
     }
   }
 
-  
+
   Future<void> pullFile(String sourcePath, String destinationPath, Function(double) onProgress) async {
     await ensureServerStarted();
     final fullCommand = '$_adbPath pull "$sourcePath" "$destinationPath"';
@@ -57,9 +57,28 @@ class AdbService {
     try {
       final process = await Process.start(_adbPath, ['pull', sourcePath, destinationPath]);
 
+      int totalBytes = 0;
+      int transferredBytes = 0;
+
+      // First, get the file size
+      final sizeProcess = await Process.run(_adbPath, ['shell', 'stat', '-c', '%s', sourcePath]);
+      if (sizeProcess.exitCode == 0) {
+        totalBytes = int.tryParse(sizeProcess.stdout.toString().trim()) ?? 0;
+      }
+
       process.stdout.transform(utf8.decoder).transform(LineSplitter()).listen((String line) {
         debugPrint('ADB output: $line');
-        onProgress(-1); // We can't get accurate progress for pull operations
+        final bytesMatch = RegExp(r'(\d+) bytes').firstMatch(line);
+        if (bytesMatch != null) {
+          transferredBytes = int.parse(bytesMatch.group(1)!);
+          if (totalBytes > 0) {
+            onProgress(transferredBytes / totalBytes);
+          }
+        }
+      });
+
+      process.stderr.transform(utf8.decoder).transform(LineSplitter()).listen((String line) {
+        debugPrint('ADB error: $line');
       });
 
       final exitCode = await process.exitCode;
@@ -90,24 +109,38 @@ class AdbService {
 
       final process = await Process.start(_adbPath, ['push', '-p', sourcePath, destinationPath]);
 
+      final fileSize = File(sourcePath).lengthSync();
+      var transferredBytes = 0;
+
       process.stdout.transform(utf8.decoder).transform(LineSplitter()).listen((String line) {
         debugPrint('ADB output: $line');
-        final progressMatch = RegExp(r'\[(\d+)%\]').firstMatch(line);
-        if (progressMatch != null) {
-          final progressPercentage = int.parse(progressMatch.group(1)!);
-          onProgress(progressPercentage / 100);
+        final bytesMatch = RegExp(r'(\d+) bytes').firstMatch(line);
+        if (bytesMatch != null) {
+          transferredBytes = int.parse(bytesMatch.group(1)!);
+          final progress = transferredBytes / fileSize;
+          onProgress(progress);
+          debugPrint('Progress update: $progress');
         }
+      });
+
+      process.stderr.transform(utf8.decoder).transform(LineSplitter()).listen((String line) {
+        debugPrint('ADB error: $line');
       });
 
       final exitCode = await process.exitCode;
       if (exitCode != 0) {
         throw Exception('ADB push failed with exit code $exitCode');
       }
+
+      // Call onProgress with 1.0 to indicate completion
+      onProgress(1.0);
+      debugPrint('Transfer completed: $sourcePath');
     } catch (e) {
       debugPrint('Exception during push operation: $e');
       rethrow;
     }
   }
+
 
 
 

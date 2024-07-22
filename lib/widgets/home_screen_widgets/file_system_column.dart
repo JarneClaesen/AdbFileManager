@@ -19,7 +19,7 @@ class FileSystemColumn extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: Icon(Icons.arrow_back),
+                icon: Icon(Icons.arrow_back_rounded),
                 onPressed: isPC
                     ? (appState.pcPathHistory.isEmpty ? null : appState.goBackPc)
                     : (appState.phonePathHistory.isEmpty ? null : appState.goBackPhone),
@@ -33,7 +33,7 @@ class FileSystemColumn extends StatelessWidget {
               ),
               if (!isPC)
                 IconButton(
-                  icon: Icon(Icons.refresh),
+                  icon: Icon(Icons.refresh_rounded),
                   onPressed: appState.refreshPhoneDirectory,
                 ),
             ],

@@ -1,7 +1,7 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:win32/win32.dart';
 import 'models/file_system_entity.dart';
+import 'models/file_transfer.dart';
 import 'services/adb_service.dart';
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
@@ -99,35 +99,58 @@ class AppState with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> transferFile(FileSystemEntity source, bool toPhone, String destinationPath) async {
-    try {
-      transferProgress = 0;
+  List<FileTransfer> _activeTransfers = [];
+  List<FileTransfer> get activeTransfers => _activeTransfers;
 
+  Future<void> transferFile(FileSystemEntity source, bool toPhone, String destinationPath) async {
+    print("Starting transfer for: ${source.name}");
+    final sourcePath = source.path;
+    final destPath = toPhone ? '$destinationPath/${source.name}' : destinationPath;
+
+    final transfer = FileTransfer(
+      fileName: source.name,
+      sourcePath: sourcePath,
+      destinationPath: destPath,
+    );
+    _activeTransfers.add(transfer);
+    notifyListeners();
+
+    try {
       if (toPhone) {
         await adbService.pushFile(
-            source.path,
-            '$destinationPath/${source.name}',
-                (progress) {
-              transferProgress = progress;
-            }
+          sourcePath,
+          destPath,
+              (progress) => _updateProgress(transfer, progress),
         );
-        await loadPhoneDirectory(currentPhonePath);
       } else {
         await adbService.pullFile(
-            source.path,
-            '$destinationPath/${source.name}',
-                (progress) {
-              transferProgress = progress;
-            }
+          sourcePath,
+          destPath,
+              (progress) => _updateProgress(transfer, progress),
         );
-        await loadPcDirectory(currentPcPath);
       }
-      transferProgress = -1;
-    } catch (e) {
-      transferProgress = -1;
-      rethrow;
+    } finally {
+      transfer.updateProgress(1.0);
+      notifyListeners();
     }
   }
+
+
+  void _updateProgress(FileTransfer transfer, double progress) {
+    transfer.updateProgress(progress);
+    print("Progress update for ${transfer.fileName}: $progress");
+    notifyListeners();
+  }
+
+  void clearCompletedTransfers() {
+    _activeTransfers.removeWhere((t) => t.progress >= 1.0);
+    notifyListeners();
+  }
+
+
+
+
+
 
   Future<void> transferFiles(List<FileSystemEntity> sources, bool toPhone, String destinationPath) async {
     try {
@@ -136,28 +159,11 @@ class AppState with ChangeNotifier {
         throw Exception('Phone-to-phone transfer is not allowed');
       }
 
-      transferProgress = 0;
-      int completedTransfers = 0;
+      _activeTransfers.clear();
+      notifyListeners();
 
       for (var source in sources) {
-        if (toPhone) {
-          await adbService.pushFile(
-              source.path,
-              '$destinationPath/${source.name}',
-                  (progress) {
-                transferProgress = (completedTransfers + progress) / sources.length;
-              }
-          );
-        } else {
-          await adbService.pullFile(
-              source.path,
-              '$destinationPath/${source.name}',
-                  (progress) {
-                transferProgress = (completedTransfers + progress) / sources.length;
-              }
-          );
-        }
-        completedTransfers++;
+        await transferFile(source, toPhone, destinationPath);
       }
 
       if (toPhone) {
@@ -165,12 +171,11 @@ class AppState with ChangeNotifier {
       } else {
         await loadPcDirectory(currentPcPath);
       }
-      transferProgress = -1;
     } catch (e) {
-      transferProgress = -1;
       rethrow;
     }
   }
+
 
 
   Future<void> refreshDirectories() async {
@@ -322,5 +327,66 @@ class AppState with ChangeNotifier {
       free(fileOp);
     }
   }
+
+  double get totalProgress {
+    if (_activeTransfers.isEmpty) return 0.0;
+
+    int totalFiles = _activeTransfers.length;
+    double totalProgressSum = _activeTransfers.map((t) => t.progress).reduce((a, b) => a + b);
+
+    return totalProgressSum / totalFiles;
+  }
+
+
+
+  void addTransfer(FileTransfer transfer) {
+    _activeTransfers.add(transfer);
+    notifyListeners();
+  }
+
+  void updateTransferProgress(String fileName, double progress) {
+    final transferIndex = _activeTransfers.indexWhere((t) => t.fileName == fileName);
+    if (transferIndex != -1) {
+      _activeTransfers[transferIndex].updateProgress(progress);
+      print("Updated progress for ${fileName}: $progress. Total progress: ${totalProgress}");
+      notifyListeners();
+    } else {
+      print("Transfer not found for ${fileName}");
+    }
+  }
+
+  void removeTransfer(String fileName) {
+    _activeTransfers.removeWhere((t) => t.fileName == fileName);
+    notifyListeners();
+  }
+
+  List<FileTransfer> _completedTransfers = [];
+  List<FileTransfer> get completedTransfers => _completedTransfers;
+
+  bool _showProgressContainer = true;
+  bool get showProgressContainer => _showProgressContainer;
+
+  void addCompletedTransfer(FileTransfer transfer) {
+    _completedTransfers.add(transfer);
+    notifyListeners();
+  }
+
+  void startNewTransfer(FileTransfer transfer) {
+    _activeTransfers.add(transfer);
+    _showProgressContainer = true;
+    notifyListeners();
+  }
+
+  void completeTransfer(FileTransfer transfer) {
+    _activeTransfers.remove(transfer);
+    _completedTransfers.add(transfer);
+    notifyListeners();
+  }
+
+  void dismissProgressContainer() {
+    _showProgressContainer = false;
+    notifyListeners();
+  }
+
 
 }
