@@ -14,7 +14,7 @@ class PhoneLocations extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Text('Phone Locations', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text('Phone', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
             ..._buildPhoneLocations(appState),
           ],

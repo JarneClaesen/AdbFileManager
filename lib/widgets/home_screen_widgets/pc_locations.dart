@@ -17,7 +17,7 @@ class PcLocations extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Text('PC Locations', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text('Computer', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
             ..._buildPcLocations(appState),
             if (Platform.isWindows) Divider(),
@@ -56,6 +56,7 @@ class PcLocations extends StatelessWidget {
       {'name': 'Documents', 'path': '${Platform.environment['USERPROFILE']}\\Documents'},
       {'name': 'Downloads', 'path': '${Platform.environment['USERPROFILE']}\\Downloads'},
       {'name': 'Pictures', 'path': '${Platform.environment['USERPROFILE']}\\Pictures'},
+      {'name': 'Videos', 'path': '${Platform.environment['USERPROFILE']}\\Videos'},
     ];
 
     return pcLocations.map((location) => ListTile(

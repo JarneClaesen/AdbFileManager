@@ -126,23 +126,23 @@ class _FileManagerState extends State<FileManager> {
     return Opacity(
       opacity: isGhost ? 0.5 : 1.0,
       child: Container(
-        margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        margin: EdgeInsets.symmetric(vertical: 1, horizontal: 2),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: ContextMenuArea(
           builder: (context) => [
             ListTile(
-              leading: Icon(Icons.copy),
-              title: Text('Copy'),
+              leading: Icon(Icons.copy, size: 16),
+              title: Text('Copy', style: TextStyle(fontSize: 12)),
               onTap: () {
                 widget.onCopy(selectedEntityPaths.isEmpty ? [entity] : widget.entities.where((e) => selectedEntityPaths.contains(e.path)).toList());
                 Navigator.of(context).pop();
               },
             ),
             ListTile(
-              leading: Icon(Icons.paste),
-              title: Text('Paste'),
+              leading: Icon(Icons.paste, size: 16),
+              title: Text('Paste', style: TextStyle(fontSize: 12)),
               onTap: () {
                 widget.onPaste();
                 Navigator.of(context).pop();
@@ -150,8 +150,8 @@ class _FileManagerState extends State<FileManager> {
               enabled: widget.copiedFiles.isNotEmpty,
             ),
             ListTile(
-              leading: Icon(Icons.delete),
-              title: Text('Delete'),
+              leading: Icon(Icons.delete, size: 16),
+              title: Text('Delete', style: TextStyle(fontSize: 12)),
               onTap: () {
                 _handleDelete();
                 Navigator.of(context).pop();
@@ -161,35 +161,54 @@ class _FileManagerState extends State<FileManager> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(4),
               onTap: () => _handleTap(entity, index),
               child: Ink(
                 decoration: BoxDecoration(
                   color: isDragging
                       ? Theme.of(context).colorScheme.surfaceContainerLowest
                       : (isSelected ? Theme.of(context).colorScheme.surfaceContainerHigh : Theme.of(context).colorScheme.surface),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                child: ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: 40, // Fixed height for consistent sizing
+                  child: Row(
+                    children: [
+                      SizedBox(width: 8),
+                      Icon(
+                        entity.isDirectory ? Icons.folder : Icons.insert_drive_file,
+                        color: entity.isDirectory ? Colors.amber : Colors.blue,
+                        size: 16,
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entity.name,
+                              style: TextStyle(fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+
+                            SizedBox(height: 4), // To up the text
+                            /*
+                            Text(
+                              '${entity.size != null ? '${(entity.size! / 1024).toStringAsFixed(2)} KB' : ''}'
+                                  '${entity.lastModified != null ? ' - ${entity.lastModified!.toString()}' : ''}',
+                              style: TextStyle(fontSize: 10),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            */
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                    ],
                   ),
-                  leading: Icon(
-                    entity.isDirectory ? Icons.folder : Icons.insert_drive_file,
-                    color: entity.isDirectory ? Colors.amber : Colors.blue,
-                  ),
-                  title: Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: Text(entity.name),
-                  ),
-                  subtitle: Padding(
-                    padding: EdgeInsets.only(bottom: 0),
-                    child: Text(
-                        '${entity.size != null ? '${(entity.size! / 1024).toStringAsFixed(2)} KB' : ''}'
-                            '${entity.lastModified != null ? ' - ${entity.lastModified!.toString()}' : ''}'
-                    ),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                 ),
               ),
             ),
@@ -198,7 +217,6 @@ class _FileManagerState extends State<FileManager> {
       ),
     );
   }
-
 
 
 

@@ -33,56 +33,69 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => AppState()),
         ChangeNotifierProvider(create: (context) => WindowManagerHelper()),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Visual ADB File Manager',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.yellow,
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-        ),
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.yellow,
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-        ),
-        themeMode: ThemeMode.dark, // Set to dark mode by default
-        home: Scaffold(
-          appBar: PreferredSize(
-            preferredSize: const Size(double.maxFinite, 50),
-            child: DragToMoveArea(
-              child: Consumer<WindowManagerHelper>(
-                builder: (context, windowHelper, child) {
-                  return AppBar(
-                    title: Text("Adb Manager"),
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    actions: [
-                      IconButton(
-                        onPressed: () => windowManager.minimize(),
-                        icon: const Icon(Icons.minimize),
-                      ),
-                      IconButton(
-                        onPressed: windowHelper.toggleMaximize,
-                        icon: Icon(windowHelper.isMaximized ? Icons.content_copy_rounded : Icons.crop_square_rounded),
-                      ),
-                      IconButton(
-                        onPressed: () => windowManager.close(),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  );
-                },
+      child: Consumer<AppState>(
+        builder: (context, appState, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'Visual ADB File Manager',
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.yellow,
+                brightness: Brightness.light,
               ),
+              useMaterial3: true,
             ),
-          ),
-          body: HomeScreen(),
-        ),
+            darkTheme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.yellow,
+                brightness: Brightness.dark,
+              ),
+              useMaterial3: true,
+            ),
+            themeMode: ThemeMode.dark, // Set to dark mode by default
+            home: Scaffold(
+              appBar: PreferredSize(
+                preferredSize: const Size(double.maxFinite, 50),
+                child: DragToMoveArea(
+                  child: Consumer<WindowManagerHelper>(
+                    builder: (context, windowHelper, child) {
+                      return AppBar(
+                        title: Text("Adb Manager"),
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        actions: [
+                          IconButton(
+                            onPressed: () => windowManager.minimize(),
+                            icon: const Icon(Icons.minimize),
+                          ),
+                          IconButton(
+                            onPressed: windowHelper.toggleMaximize,
+                            icon: Icon(windowHelper.isMaximized ? Icons.content_copy_rounded : Icons.crop_square_rounded),
+                          ),
+                          IconButton(
+                            onPressed: () => windowManager.close(),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              body: appState.errorMessage != null
+                  ? Center(
+                child: Text(
+                  appState.errorMessage!,
+                  style: TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              )
+                  : HomeScreen(),
+            ),
+          );
+        },
       ),
     );
   }
 }
+

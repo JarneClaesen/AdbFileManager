@@ -16,6 +16,9 @@ class AppState with ChangeNotifier {
   String currentPhonePath = '/storage/emulated/0';
   bool isLoading = false;
   bool isPhoneLoading = false;
+  String? _errorMessage;
+
+  String? get errorMessage => _errorMessage;
 
   List<String> pcPathHistory = [];
   List<String> phonePathHistory = [];
@@ -25,14 +28,24 @@ class AppState with ChangeNotifier {
   }
 
   Future<void> _initAdb() async {
-    isLoading = true;
-    notifyListeners();
-    await adbService.init();
-    await adbService.ensureServerStarted();
-    await loadPhoneDirectory(currentPhonePath);
-    isLoading = false;
-    notifyListeners();
+    try {
+      isLoading = true;
+      notifyListeners();
+
+      await adbService.init();
+      await adbService.ensureServerStarted();
+      await loadPhoneDirectory(currentPhonePath);
+
+      isLoading = false;
+      _errorMessage = null; // Clear any previous error messages
+    } catch (e) {
+      _errorMessage = e.toString();
+      isLoading = false;
+    } finally {
+      notifyListeners();
+    }
   }
+
 
   Future<void> loadPcDirectory(String path) async {
     try {

@@ -10,14 +10,15 @@ class AdbService {
   bool _serverStarted = false;
 
   Future<void> init() async {
-    final tempDir = await getTemporaryDirectory();
-    _adbPath = '${tempDir.path}/adb.exe';
+    final appDir = await getApplicationSupportDirectory();
+    _adbPath = '${appDir.path}/adb_${DateTime.now().millisecondsSinceEpoch}.exe';
 
-    // Copy ADB executable from assets to temp directory
+    // Copy ADB executable from assets to app support directory
     final adbData = await rootBundle.load('assets/platform-tools/adb.exe');
     final adbFile = File(_adbPath);
     await adbFile.writeAsBytes(adbData.buffer.asUint8List());
   }
+
 
   Future<void> ensureServerStarted() async {
     if (!_serverStarted) {
@@ -105,19 +106,28 @@ class AdbService {
     debugPrint('Executing ADB command: $fullCommand');
 
     try {
-      await ensureDirectoryExists(destinationPath.substring(0, destinationPath.lastIndexOf('/')));
+      // Ensure the parent directory exists
+      final parentDir = destinationPath.substring(0, destinationPath.lastIndexOf('/'));
+      await ensureDirectoryExists(parentDir);
 
       final process = await Process.start(_adbPath, ['push', '-p', sourcePath, destinationPath]);
 
-      final fileSize = File(sourcePath).lengthSync();
-      var transferredBytes = 0;
+      int totalBytes = 0;
+      int transferredBytes = 0;
+
+      // Get total size of files to be transferred
+      if (FileSystemEntity.isDirectorySync(sourcePath)) {
+        totalBytes = await _getTotalSize(sourcePath);
+      } else {
+        totalBytes = await File(sourcePath).length();
+      }
 
       process.stdout.transform(utf8.decoder).transform(LineSplitter()).listen((String line) {
         debugPrint('ADB output: $line');
-        final bytesMatch = RegExp(r'(\d+) bytes').firstMatch(line);
+        final bytesMatch = RegExp(r'(\d+)/(\d+) files? pushed').firstMatch(line);
         if (bytesMatch != null) {
           transferredBytes = int.parse(bytesMatch.group(1)!);
-          final progress = transferredBytes / fileSize;
+          final progress = transferredBytes / totalBytes;
           onProgress(progress);
           debugPrint('Progress update: $progress');
         }
@@ -132,7 +142,6 @@ class AdbService {
         throw Exception('ADB push failed with exit code $exitCode');
       }
 
-      // Call onProgress with 1.0 to indicate completion
       onProgress(1.0);
       debugPrint('Transfer completed: $sourcePath');
     } catch (e) {
@@ -140,6 +149,17 @@ class AdbService {
       rethrow;
     }
   }
+
+  Future<int> _getTotalSize(String path) async {
+    int total = 0;
+    await for (final entity in Directory(path).list(recursive: true)) {
+      if (entity is File) {
+        total += await entity.length();
+      }
+    }
+    return total;
+  }
+
 
 
 
